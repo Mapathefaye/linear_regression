@@ -1,0 +1,142 @@
+---
+title: "LinearRegrressionWithR"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+ozone <- read.table("Dataset_ozone.txt", header=TRUE, sep=";", dec=",")
+head(ozone)
+n <- dim(ozone[1])
+n
+p <- 4
+alpha <- 0.05
+```
+
+You can add options to executable code like this
+
+```{r}
+reg_multi <- lm(maxO3~T9+T12+T15+Ne9+Ne12+Ne15+maxO3v,data=ozone)
+summary(reg_multi)
+```
+
+```{r}
+reg_multi <- lm(maxO3~T9+T12+T15+Ne9+Ne12+maxO3v,data=ozone)
+summary(reg_multi)
+```
+
+```{r}
+
+```
+
+```{r}
+reg_multi <- lm(maxO3~T9+T12+Ne9+maxO3v,data=ozone)
+summary(reg_multi)
+```
+
+```{r}
+reg_multi <- lm(maxO3~T12+Ne9+maxO3v,data=ozone)
+summary(reg_multi)
+```
+
+Diagnostics of the model
+
+1- Normality of residuals
+
+```{r}
+shapiro.test(reg_multi$residuals)
+# Les résidus n'ont pas une distribution normale Par contre elle n'est nécessaire pour les IC et tests
+```
+
+2- Homoscedasticity of the variance of residuals
+
+```{r}
+#install.packages("zoo")
+library(zoo)
+library(lmtest)
+bptest(reg_multi)
+
+# la p-valeur est supérieur au seuil de 0.05 donc on conserve H0 selon laquelle les variance des résidus sont constant
+```
+
+3- Test the colinearity of variables
+
+```{r}
+#install.packages("car")
+#install.packages("carData")
+library(carData)
+library(car)
+vif((reg_multi))
+
+# tous les coefficients sont inférieurs à 10, il n'y a donc pas de problème de  #colinéarité.
+```
+
+4- Calculate Leverage
+
+```{r}
+n <- 112
+library(ggplot2)
+analyses <- data.frame(obs=1:n)
+analyses$levier <- hat(model.matrix(reg_multi))
+seuil_levier <- 2*p/n
+
+ggplot(data=analyses,aes(x=obs,y=levier))+
+   geom_bar(stat="identity",fill="steelblue")+
+   geom_hline(yintercept=seuil_levier,col="red")+
+   theme_minimal()+
+   xlab("Observation")+
+   ylab("Leviers")+
+   scale_x_continuous(breaks=seq(0,n,by=5))
+```
+
+```{r}
+# POur récupérer les points pour lesquels le levier est supérieur au seuil
+
+idl <- analyses$levier>seuil_levier
+idl
+analyses$levier[idl]
+```
+
+5- Outliers
+
+```{r}
+n<-112
+analyses$rstudent <- rstudent(reg_multi)
+seuil_rstudent <- qt(1-alpha/2,n-p-1)
+
+ggplot(data=analyses,aes(x=obs,y=rstudent))+
+  geom_bar(stat="identity",fill="steelblue")+
+  geom_hline(yintercept=-seuil_rstudent,col="red")+
+  geom_hline(yintercept=seuil_rstudent,col="red")+
+  theme_minimal()+
+  xlab("observation")+
+  ylab("Résidus studentisés")+
+  scale_x_continuous(breaks=seq(0,n,by=5))
+```
+
+```{r}
+influence <- influence.measures(reg_multi)
+names(influence)
+colnames(influence$infmat)
+
+analyses$dcook <- influence$infmat[,"cook.d"]
+seuil_dcook <- 4/(n-p)
+
+ggplot(data=analyses,aes(x=obs,y=dcook))+
+  geom_bar(stat="identity",fill="steelblue")+
+  geom_hline(yintercept=seuil_dcook,col="red")+
+  theme_minimal()+
+  xlab("Observation")+
+  ylab("Distance de cook")+
+  scale_x_continuous(breaks=seq(0,n,by=5))
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
